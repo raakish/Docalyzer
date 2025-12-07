@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Legal Docalyser</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 50px;
+            background-color: #000080;
+            color: white;
+        }
+
+        #uploadButton {
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: none;
+            background-color: #fff;
+            color: black;
+            cursor: pointer;
+        }
+
+        input[type="file"] {
+            margin-bottom: 20px;
+            background-color: white;
+            color: black;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        #output {
+            white-space: pre-wrap;
+            background-color: #f4f4f4;
+            color: black;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        #analysisSection {
+            margin-top: 30px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        #analysisResult {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+
+        }
+
+        #filters {
+            margin-left: 10px;
+            margin-right: 10px;
+            padding: 5px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+        }
+
+        #applyFilter {
+            padding: 5px 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: none;
+            background-color: #28a745;
+            color: white;
+            cursor: pointer;
+        }
+
+        #label {
+            font-size: 18px;
+            margin-left: 10px;
+            line-height: 32px;
+        }
+
+        #loadingGif {
+            width: 50px;
+            height: 50px;
+            margin-left: 20px;
+            padding-top: 10px;
+        }
+
+        #textDialog {
+            /*Style the dialog in the same theme as the webpage*/
+            background-color: #000080;
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            border: 2px solid #fff;
+        }
+
+        #textDialog button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: none;
+            background-color: #fff;
+            color: black;
+            cursor: pointer;
+        }
+
+        #textDialog h2 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Docalyser</h1>
+
+    <form id="pdfForm" action="/upload-pdf" method="POST" enctype="multipart/form-data">
+        <input type="file" name="pdf" accept=".pdf" required>
+        <br>
+        <button type="submit" id="uploadButton">Upload PDF</button>
+    </form>
+    <div style="display: none;" id="loadingDiv">
+        <h1 style="font-size: 35px">Loading...</h1><img src="loading-gif.gif" id="loadingGif" alt="Loading..." /></img>
+    </div>
+
+    <dialog id="textDialog">
+        <div style="display: flex;">
+            <h2> Here is the text that was extracted from the PDF:</h2>
+            <button id="closeDialog" style="margin-left: auto;"
+                onclick="document.getElementById('textDialog').close();">x</button>
+        </div>
+        <pre id="output"></pre>
+        <button id="analyzeButton">Start analyzing</button>
+    </dialog>
+
+
+    <div id="analysisSection" style="display:none;">
+        <strong><label for="filters" id="label">Filter By:</label></strong>
+
+        <select id="filters">
+            <option value="clause_number">Clause Number</option>
+            <option value="risk_score">Risk Score</option>
+            <option value="ambiguities">Ambiguities Clauses Only</option>
+        </select>
+        <button id="applyFilter">Apply Filter</button>
+        <table id="analysisResult" border="1">
+            <tr>
+                <th>Clause Number</th>
+                <th>Clause Title</th>
+                <th>Risk Score(0-10)</th>
+                <th>Issues Identified</th>
+                <th>Who it Benefits</th>
+                <th>Ambiguities</th>
+                <th>Summary</th>
+            </tr>
+
+        </table>
+    </div>
+
+
+    <script>
+        const form = document.getElementById('pdfForm');
+        const output = document.getElementById('output');
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            output.textContent = 'Uploading and processing PDF...';
+
+            const formData = new FormData(form);
+            try {
+                const response = await fetch('/upload-pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.statusText}`);
+                }
+
+                const text = await response.text();
+                output.textContent = text;
+                document.getElementById("textDialog").showModal();
+                console.log(text)
+            } catch (error) {
+                output.textContent = `Error: ${error.message}`;
+            }
+        };
+
+        document.getElementById("analyzeButton").addEventListener("click", function () {
+            document.getElementById("textDialog").close();
+            document.getElementById("pdfForm").style.display = "none";
+            document.getElementById("loadingDiv").style.display = "flex";
+
+            const extractedText = output.textContent;
+            fetch('/analyze-text', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text: extractedText })
+            })
+                .then(response => response.json())
+                .then(analysis => {
+                    //document.getElementById('analysisResult').textContent = JSON.stringify(analysis, null, 2);
+                    let json = JSON.stringify(analysis, null, 2);
+                    const tableDiv = document.getElementById('analysisSection');
+                    tableDiv.style.display = 'block';
+                    const table = document.getElementById('analysisResult');
+                    document.getElementById("loadingDiv").style.display = "none";
+
+
+                    analysis.forEach(clause => {
+                        const row = table.insertRow();
+                        row.insertCell(0).textContent = clause.clause_number;
+                        row.insertCell(1).textContent = clause.clause_title;
+                        row.insertCell(2).textContent = clause.risk_score;
+                        row.insertCell(3).textContent = clause.issues;
+                        row.insertCell(4).textContent = clause.who_it_benefits;
+                        row.insertCell(5).textContent = clause.ambiguities;
+                        row.insertCell(6).textContent = clause.summary;
+                    });
+
+                    // filter based on risk score, in descending order
+                    let applyFilterButton = document.getElementById('applyFilter');
+                    applyFilterButton.addEventListener('click', () => {
+                        const filter = document.getElementById('filters').value;
+                        console.log('Applying filter: ' + filter);
+                        let rows = Array.from(table.rows).slice(1);
+                        if (filter === 'risk_score') {
+                            rows.sort((a, b) => b.cells[2].textContent - a.cells[2].textContent);
+                        } else if (filter === 'clause_number') {
+                            analysis.forEach(clause => {
+                                const row = table.insertRow();
+                                row.insertCell(0).textContent = clause.clause_number;
+                                row.insertCell(1).textContent = clause.clause_title;
+                                row.insertCell(2).textContent = clause.risk_score;
+                                row.insertCell(3).textContent = clause.issues;
+                                row.insertCell(4).textContent = clause.who_it_benefits;
+                                row.insertCell(5).textContent = clause.ambiguities;
+                                row.insertCell(6).textContent = clause.summary;
+                            });
+                        } else if (filter === 'ambiguities') {
+                            rows = rows.filter(row => row.cells[5].textContent.trim() !== '' && !row.cells[5].textContent.trim().toLowerCase().includes('n/a'));
+                        }
+
+                        // Clear existing rows
+                        while (table.rows.length > 1) {
+                            table.deleteRow(1);
+                        }
+
+                        // Re-add sorted/filtered rows
+                        rows.forEach(row => table.appendChild(row));
+                    });
+
+
+
+                })
+                .catch(error => {
+                    output.textContent += `\n\nError during analysis: ${error.message}`;
+                });
+        });
+
+
+    </script>
+
+</body>
+
+</html>
