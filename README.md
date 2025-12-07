@@ -24,6 +24,8 @@ Many people do not read all the clauses when they sign a contract. Some only ski
 There are only a few steps required to set it up: 
 - Download this repository
 - Download Node.js(if not already installed)
+- Configure your own Gemini API key, which you can find on [aistudio.google.com](https://aistudio.google.com/).
+- Using the same format as the env.example file, create your own .env file and insert your API key and port.
 - With a terminal(Powershell, Mac, Linux), enter the following command: `npm i`. This installs all the dependencies in the code.
 - Run the command `npm run dev` to run the dev dependency Nodemon, which automatically restarts your node application when it detects any changes.
 - Open `localhost:PORT_NAME` and replace `PORT_NAME` with your port name
